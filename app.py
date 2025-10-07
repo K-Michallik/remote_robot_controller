@@ -89,6 +89,7 @@ class RemoteRobotControllerApp:
 		ttk.Label(conn_frame, text="Robot Host/IP:").grid(row=0, column=0, padx=(0, 8), sticky="w")
 		self.host_entry = ttk.Entry(conn_frame, textvariable=self.host_var, width=28)
 		self.host_entry.grid(row=0, column=1, padx=(0, 8), sticky="we")
+		attach_tooltip(self.host_entry, "Enter robot IP or hostname.\nExamples:\n• Physical robot: 10.0.0.5\n• URSim default: localhost\n• URSim custom port: localhost:50020")
 		conn_frame.grid_columnconfigure(1, weight=1)
 
 		self.connect_button = ttk.Button(conn_frame, text="Connect", command=self.on_connect)
@@ -136,6 +137,7 @@ class RemoteRobotControllerApp:
 		ttk.Label(program_frame, text="Program Name:").grid(row=0, column=0, padx=(0, 8), sticky="w")
 		self.program_entry = ttk.Entry(program_frame, textvariable=self.program_name_var, width=28)
 		self.program_entry.grid(row=0, column=1, padx=(0, 8), sticky="we")
+		attach_tooltip(self.program_entry, "Enter program name without extension.\nExample: For 'my_robot_program.urpx' enter 'my_robot_program'")
 		program_frame.grid_columnconfigure(1, weight=1)
 		self.load_button = ttk.Button(program_frame, text="Load", command=self.on_load_program)
 		self.load_button.grid(row=0, column=2, padx=(0, 8))

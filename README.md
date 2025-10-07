@@ -1,6 +1,6 @@
 ## Remote Robot Controller
 
-Desktop GUI to control a Polyscope X Universal Robots robot via the Robot API. The app provides quick access to robot state actions, program loading and execution, and live status feedback over HTTP. This currently only functions with a real robot and does NOT work with URSim.
+Desktop GUI to control a Polyscope X Universal Robots robot via the Robot API. The app provides quick access to robot state actions, program loading and execution, and live status feedback over HTTP.
 
 ![Remote Robot Controller GUI](resources/remote_controller_gui.png)
 
@@ -39,7 +39,14 @@ Module form must be run from the directory that contains the `remote_robot_contr
 python -m remote_robot_controller.app
 ```
 
-Enter the robot controller host/IP (e.g., `10.0.0.5` or `http://10.0.0.5`) and click **Connect**. Use the provided buttons to send actions and manage programs. The log panel shows concise messages; enable **Debug** for full HTTP details (status, URL, headers, body) when troubleshooting.
+Enter the robot controller host/IP and click **Connect**. Use the provided buttons to send actions and manage programs. The log panel shows concise messages; enable **Debug** for full HTTP details (status, URL, headers, body) when troubleshooting.
+
+**Connection Examples:**
+- Physical robot: `10.0.0.5` or `192.168.1.100`
+- URSim on default port: `localhost` or `127.0.0.1`
+- URSim on custom port: `localhost:50020` or `127.0.0.1:50020`
+
+> **Note:** The app automatically adds `http://` if no scheme is provided. You can also use `https://` if needed.
 
 ### REST Endpoints
 All endpoints are served under the base URL:

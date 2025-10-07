@@ -11,7 +11,8 @@ def ensure_http_scheme(host: str) -> str:
 	if not host:
 		return host
 	parsed = urllib.parse.urlparse(host)
-	if not parsed.scheme:
+	# Check if scheme is missing or not a valid HTTP scheme
+	if not parsed.scheme or parsed.scheme not in ("http", "https"):
 		return f"http://{host}"
 	return host
 
