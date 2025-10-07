@@ -19,7 +19,7 @@ def ensure_http_scheme(host: str) -> str:
 class RobotApiClient:
 	"""Minimal HTTP client for the robot REST API using urllib (stdlib only)."""
 
-	def __init__(self, host: str | None = None, timeout_seconds: float = 5.0) -> None:
+	def __init__(self, host: str | None = None, timeout_seconds: float = 10.0) -> None:
 		self._timeout_seconds = timeout_seconds
 		self._base_url = ""
 		if host:

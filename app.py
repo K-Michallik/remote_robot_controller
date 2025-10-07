@@ -9,12 +9,25 @@ from tkinter import ttk
 from tkinter import scrolledtext
 
 try:
-	from remote_robot_controller.client import RobotApiClient  # when run as a script
-except Exception:
-	try:
-		from .client import RobotApiClient  # when run as a module
-	except Exception: 
-		from client import RobotApiClient
+	from .client import RobotApiClient  # when run as a module
+except ImportError:
+	from client import RobotApiClient  # when run as a script
+
+
+# Action constants
+class RobotStateAction:
+	UNLOCK_PROTECTIVE_STOP = "UNLOCK_PROTECTIVE_STOP"
+	RESTART_SAFETY = "RESTART_SAFETY"
+	POWER_OFF = "POWER_OFF"
+	POWER_ON = "POWER_ON"
+	BRAKE_RELEASE = "BRAKE_RELEASE"
+
+
+class ProgramAction:
+	PLAY = "play"
+	PAUSE = "pause"
+	STOP = "stop"
+	RESUME = "resume"
 
 
 class _Tooltip:
@@ -99,14 +112,18 @@ class RemoteRobotControllerApp:
 		self.root.grid_rowconfigure(2, weight=0)
 
 		robot_actions = [
-			("UNLOCK_PROTECTIVE_STOP", self.on_unlock_protective_stop),
-			("RESTART_SAFETY", self.on_restart_safety),
-			("POWER_OFF", self.on_power_off),
-			("POWER_ON", self.on_power_on),
-			("BRAKE_RELEASE", self.on_brake_release),
+			RobotStateAction.UNLOCK_PROTECTIVE_STOP,
+			RobotStateAction.RESTART_SAFETY,
+			RobotStateAction.POWER_OFF,
+			RobotStateAction.POWER_ON,
+			RobotStateAction.BRAKE_RELEASE,
 		]
-		for idx, (label, handler) in enumerate(robot_actions):
-			btn = ttk.Button(robot_frame, text=label, command=handler)
+		for idx, action in enumerate(robot_actions):
+			btn = ttk.Button(
+				robot_frame, 
+				text=action, 
+				command=lambda a=action: self._send_robot_state_action(a)
+			)
 			btn.grid(row=0, column=idx, padx=(0, 6), pady=(0, 2), sticky="w")
 
 		# Program controls
@@ -126,13 +143,18 @@ class RemoteRobotControllerApp:
 		# Program actions
 		actions_frame = ttk.Frame(program_frame)
 		actions_frame.grid(row=1, column=0, columnspan=3, pady=(8, 0), sticky="w")
-		for idx, (label, handler) in enumerate([
-			("play", self.on_program_play),
-			("pause", self.on_program_pause),
-			("stop", self.on_program_stop),
-			("resume", self.on_program_resume),
-		]):
-			btn = ttk.Button(actions_frame, text=label.capitalize(), command=handler)
+		program_actions = [
+			ProgramAction.PLAY,
+			ProgramAction.PAUSE,
+			ProgramAction.STOP,
+			ProgramAction.RESUME,
+		]
+		for idx, action in enumerate(program_actions):
+			btn = ttk.Button(
+				actions_frame, 
+				text=action.capitalize(), 
+				command=lambda a=action: self._send_program_action(a)
+			)
 			btn.grid(row=0, column=idx, padx=(0, 6))
 
 		# Program state display and refresh
@@ -220,7 +242,8 @@ class RemoteRobotControllerApp:
 			return f"Network error: {reason}"
 		return f"Error: {err}"
 
-	def _run_async(self, worker, on_success=None, on_error=None) -> None:
+	def _run_async(self, worker, on_success=None, on_error=None, on_finally=None) -> None:
+		"""Execute a worker function asynchronously with optional callbacks."""
 		def target():
 			try:
 				result = worker()
@@ -229,6 +252,9 @@ class RemoteRobotControllerApp:
 			except Exception as exc:  # noqa: BLE001
 				if on_error:
 					self.root.after(0, on_error, exc)
+			finally:
+				if on_finally:
+					self.root.after(0, on_finally)
 		threading.Thread(target=target, daemon=True).start()
 
 	# Handlers
@@ -260,36 +286,10 @@ class RemoteRobotControllerApp:
 		def finally_enable():
 			self.connect_button.configure(state="normal")
 
-		def wrapped_success(result):
-			try:
-				success(result)
-			finally:
-				finally_enable()
-
-		def wrapped_error(err):
-			try:
-				error(err)
-			finally:
-				finally_enable()
-
-		self._run_async(worker, on_success=wrapped_success, on_error=wrapped_error)
-
-	def on_unlock_protective_stop(self) -> None:
-		self._send_robot_state_action("UNLOCK_PROTECTIVE_STOP")
-
-	def on_restart_safety(self) -> None:
-		self._send_robot_state_action("RESTART_SAFETY")
-
-	def on_power_off(self) -> None:
-		self._send_robot_state_action("POWER_OFF")
-
-	def on_power_on(self) -> None:
-		self._send_robot_state_action("POWER_ON")
-
-	def on_brake_release(self) -> None:
-		self._send_robot_state_action("BRAKE_RELEASE")
+		self._run_async(worker, on_success=success, on_error=error, on_finally=finally_enable)
 
 	def _send_robot_state_action(self, action: str) -> None:
+		"""Generic handler for robot state actions."""
 		self.append_log(f"Sending robot state action: {action}")
 
 		def worker():
@@ -321,19 +321,8 @@ class RemoteRobotControllerApp:
 
 		self._run_async(worker, on_success=success, on_error=error)
 
-	def on_program_play(self) -> None:
-		self._send_program_action("play")
-
-	def on_program_pause(self) -> None:
-		self._send_program_action("pause")
-
-	def on_program_stop(self) -> None:
-		self._send_program_action("stop")
-
-	def on_program_resume(self) -> None:
-		self._send_program_action("resume")
-
 	def _send_program_action(self, action: str) -> None:
+		"""Generic handler for program actions."""
 		self.append_log(f"Sending program action: {action}")
 
 		def worker():
