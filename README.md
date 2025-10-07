@@ -11,7 +11,7 @@ Desktop GUI to control a Polyscope X Universal Robots robot via the Robot API. T
 - **No external deps**: Pure Python stdlib (Tkinter + urllib)
 
 ### Requirements
-- Python 3.11+
+- Python 3.10+
 - A Universal Robots controller running Polyscope X
 - Robot in **Remote Control** mode for most commands
 - Network connectivity to the controller

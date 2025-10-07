@@ -45,7 +45,6 @@ class RobotApiClient:
 		# Follow up to 3 redirects (e.g., 307 http -> https) for non-GET as well
 		max_redirects = 3
 		for _ in range(max_redirects + 1):
-			# Python 3.11 supports 'method' in Request
 			req = urllib.request.Request(url=url, data=data_bytes, headers=headers, method=method)
 			try:
 				with urllib.request.urlopen(req, timeout=self._timeout_seconds) as resp:
