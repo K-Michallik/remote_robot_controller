@@ -16,6 +16,13 @@ Desktop GUI to control a Polyscope X Universal Robots robot via the Robot API. T
 - Robot in **Remote Control** mode for most commands
 - Network connectivity to the controller
 
+#### Enabling Remote Control Mode
+To use this application, you must first enable **Remote Control** mode on your UR robot. In Polyscope X, navigate to the Safety Overview and select **Remote** as the Control mode (you must already be in Automatic mode to enable it):
+
+![Remote Control Selection](resources/remote_control_selection.png)
+
+**Note:** Most robot state and program control commands will only work when the robot is in Remote Control mode.
+
 
 ### Running the App
 You can run as a script or as a module. After cloning the repo you can run the following in a terminal:
