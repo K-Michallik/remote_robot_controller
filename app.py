@@ -212,6 +212,35 @@ class RemoteRobotControllerApp:
 		self.log_widget.delete("1.0", "end")
 		self.log_widget.configure(state="disabled")
 
+	def _format_http_success(self, response_body: dict) -> str:
+		"""Format successful HTTP response for debug logging."""
+		metadata = self.client.get_last_response_metadata()
+		if not metadata:
+			return ""
+		
+		method = metadata.get("method", "")
+		url = metadata.get("url", "")
+		status = metadata.get("status", "")
+		headers = metadata.get("headers", {})
+		request_body = metadata.get("request_body")
+		
+		parts = [f"HTTP {status} {method} {url}"]
+		
+		# Request details
+		if request_body:
+			parts.append(f"\nRequest Body:\n{json.dumps(request_body, indent=2)}")
+		
+		# Response headers
+		headers_str = "\n".join([f"{k}: {v}" for k, v in headers.items()])
+		parts.append(f"\nResponse Headers:\n{headers_str}")
+		
+		# Response body
+		if response_body:
+			body_str = json.dumps(response_body, indent=2) if isinstance(response_body, dict) else str(response_body)
+			parts.append(f"\nResponse Body:\n{body_str}")
+		
+		return "".join(parts)
+
 	@staticmethod
 	def _format_http_error(err: Exception, debug: bool = False) -> str:
 		if isinstance(err, urllib.error.HTTPError):
@@ -259,6 +288,45 @@ class RemoteRobotControllerApp:
 					self.root.after(0, on_finally)
 		threading.Thread(target=target, daemon=True).start()
 
+	def _execute_api_call(
+		self,
+		api_call,
+		initial_message: str | None = None,
+		success_message: str | None = None,
+		on_success_callback=None,
+		on_error_callback=None,
+		on_finally=None,
+	) -> None:
+		"""Execute an API call with standard logging and error handling.
+		
+		Args:
+			api_call: Function that makes the API call and returns response
+			initial_message: Optional message to log before making the call
+			success_message: Message to log on success
+			on_success_callback: Optional callback to execute on success (in addition to logging)
+			on_error_callback: Optional callback to execute on error (in addition to logging)
+			on_finally: Optional callback to execute in finally block
+		"""
+		if initial_message:
+			self.append_log(initial_message)
+
+		def success(resp):
+			if success_message:
+				self.append_log(success_message)
+			if self.debug_var.get():
+				debug_info = self._format_http_success(resp)
+				if debug_info:
+					self.append_log(debug_info)
+			if on_success_callback:
+				on_success_callback(resp)
+
+		def error(err: Exception):
+			self.append_log(self._format_http_error(err, debug=self.debug_var.get()))
+			if on_error_callback:
+				on_error_callback(err)
+
+		self._run_async(api_call, on_success=success, on_error=error, on_finally=on_finally)
+
 	# Handlers
 	def on_connect(self) -> None:
 		host = self.host_var.get().strip()
@@ -271,80 +339,52 @@ class RemoteRobotControllerApp:
 		self.set_indicator("orange")
 		self.client.set_host(host)
 
-		def success(_):
+		def on_success_callback(_resp):
 			self.set_indicator("green")
 			self.connection_status_var.set("Connection Success")
-			self.append_log("Connected successfully.")
 
-		def error(err: Exception):
+		def on_error_callback(_err):
 			self.set_indicator("red")
 			self.connection_status_var.set("Connection Failed")
-			self.append_log(self._format_http_error(err, debug=self.debug_var.get()))
 
-		def worker():
-			# Connectivity check by calling GET /program/v1/state
-			return self.client.get_program_state()
-
-		def finally_enable():
-			self.connect_button.configure(state="normal")
-
-		self._run_async(worker, on_success=success, on_error=error, on_finally=finally_enable)
+		self._execute_api_call(
+			api_call=self.client.get_program_state,
+			success_message="Connected successfully.",
+			on_success_callback=on_success_callback,
+			on_error_callback=on_error_callback,
+			on_finally=lambda: self.connect_button.configure(state="normal"),
+		)
 
 	def _send_robot_state_action(self, action: str) -> None:
 		"""Generic handler for robot state actions."""
-		self.append_log(f"Sending robot state action: {action}")
-
-		def worker():
-			return self.client.set_robot_state(action)
-
-		def success(_):
-			self.append_log(f"Robot state action '{action}' succeeded.")
-
-		def error(err: Exception):
-			self.append_log(self._format_http_error(err, debug=self.debug_var.get()))
-
-		self._run_async(worker, on_success=success, on_error=error)
+		self._execute_api_call(
+			api_call=lambda: self.client.set_robot_state(action),
+			initial_message=f"Sending robot state action: {action}",
+			success_message=f"Robot state action '{action}' succeeded.",
+		)
 
 	def on_load_program(self) -> None:
 		name = self.program_name_var.get().strip()
 		if not name:
 			self.append_log("Please enter a program name to load.")
 			return
-		self.append_log(f"Loading program: {name}")
 
-		def worker():
-			return self.client.load_program(name)
-
-		def success(_):
-			self.append_log(f"Program '{name}' loaded successfully.")
-
-		def error(err: Exception):
-			self.append_log(self._format_http_error(err, debug=self.debug_var.get()))
-
-		self._run_async(worker, on_success=success, on_error=error)
+		self._execute_api_call(
+			api_call=lambda: self.client.load_program(name),
+			initial_message=f"Loading program: {name}",
+			success_message=f"Program '{name}' loaded successfully.",
+		)
 
 	def _send_program_action(self, action: str) -> None:
 		"""Generic handler for program actions."""
-		self.append_log(f"Sending program action: {action}")
-
-		def worker():
-			return self.client.set_program_action(action)
-
-		def success(_):
-			self.append_log(f"Program action '{action}' succeeded.")
-
-		def error(err: Exception):
-			self.append_log(self._format_http_error(err, debug=self.debug_var.get()))
-
-		self._run_async(worker, on_success=success, on_error=error)
+		self._execute_api_call(
+			api_call=lambda: self.client.set_program_action(action),
+			initial_message=f"Sending program action: {action}",
+			success_message=f"Program action '{action}' succeeded.",
+		)
 
 	def on_refresh_program_state(self) -> None:
-		self.append_log("Refreshing program state...")
-
-		def worker():
-			return self.client.get_program_state()
-
-		def success(resp: dict):
+		def on_success_callback(resp: dict):
 			# Try to find a 'state' key; otherwise show raw
 			state_text = None
 			if isinstance(resp, dict):
@@ -357,12 +397,13 @@ class RemoteRobotControllerApp:
 			if not state_text:
 				state_text = json.dumps(resp)
 			self.program_state_var.set(f"Program state: {state_text}")
-			self.append_log("Program state refreshed.")
 
-		def error(err: Exception):
-			self.append_log(self._format_http_error(err))
-
-		self._run_async(worker, on_success=success, on_error=error)
+		self._execute_api_call(
+			api_call=self.client.get_program_state,
+			initial_message="Refreshing program state...",
+			success_message="Program state refreshed.",
+			on_success_callback=on_success_callback,
+		)
 
 
 def main() -> None:

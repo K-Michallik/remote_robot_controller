@@ -23,6 +23,7 @@ class RobotApiClient:
 	def __init__(self, host: str | None = None, timeout_seconds: float = 10.0) -> None:
 		self._timeout_seconds = timeout_seconds
 		self._base_url = ""
+		self._last_response_metadata: dict = {}  # Store metadata for debug purposes
 		if host:
 			self.set_host(host)
 
@@ -33,6 +34,10 @@ class RobotApiClient:
 
 	def _build_url(self, path: str) -> str:
 		return f"{self._base_url}{path}"
+
+	def get_last_response_metadata(self) -> dict:
+		"""Return metadata from the last successful HTTP response for debug purposes."""
+		return self._last_response_metadata.copy()
 
 	def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
 		url = self._build_url(path)
@@ -48,6 +53,14 @@ class RobotApiClient:
 			req = urllib.request.Request(url=url, data=data_bytes, headers=headers, method=method)
 			try:
 				with urllib.request.urlopen(req, timeout=self._timeout_seconds) as resp:
+					# Store metadata for debug purposes
+					self._last_response_metadata = {
+						"method": method,
+						"url": url,
+						"status": resp.status,
+						"headers": dict(resp.headers),
+						"request_body": payload,
+					}
 					content_type = resp.headers.get("Content-Type", "")
 					raw = resp.read()
 					if "application/json" in content_type:
@@ -62,6 +75,21 @@ class RobotApiClient:
 				if err.code in (307, 308):
 					location = err.headers.get("Location") if err.headers else None
 					if location:
+						# Parse both URLs to preserve port from original if redirect strips it
+						original_parsed = urllib.parse.urlparse(url)
+						location_parsed = urllib.parse.urlparse(location)
+						
+						# If redirect is absolute but missing port, preserve original port
+						if location_parsed.scheme and location_parsed.netloc:
+							# Check if location has no port but original does
+							if ':' in original_parsed.netloc and ':' not in location_parsed.netloc:
+								# Extract port from original
+								original_host, original_port = original_parsed.netloc.rsplit(':', 1)
+								# Add port to redirect location
+								new_netloc = f"{location_parsed.netloc}:{original_port}"
+								location_parsed = location_parsed._replace(netloc=new_netloc)
+								location = urllib.parse.urlunparse(location_parsed)
+						
 						url = urllib.parse.urljoin(url, location)
 						continue
 				# Propagate other HTTP errors to caller
