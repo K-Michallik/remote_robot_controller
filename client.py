@@ -107,4 +107,22 @@ class RobotApiClient:
 	def set_robot_state(self, action: str) -> dict:
 		return self._request("PUT", "/robotstate/v1/state", {"action": action})
 
+	def get_safety_mode(self) -> dict:
+		return self._request("GET", "/robotstate/v1/safetymode")
+
+	def get_robot_mode(self) -> dict:
+		return self._request("GET", "/robotstate/v1/robotmode")
+
+	def get_control_mode(self) -> dict:
+		return self._request("GET", "/system/v1/controlmode")
+
+	def get_operational_mode(self) -> dict:
+		return self._request("GET", "/system/v1/operationalmode")
+
+	def get_programs_list(self) -> dict:
+		return self._request("GET", "/programs/v1")
+
+	def get_program_by_name(self, name: str) -> dict:
+		return self._request("GET", f"/programs/v1/{name}")
+
 

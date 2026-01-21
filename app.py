@@ -107,10 +107,47 @@ class RemoteRobotControllerApp:
 		separator1 = ttk.Separator(self.root, orient="horizontal")
 		separator1.grid(row=1, column=0, sticky="ew", pady=(4, 4))
 
+		# System Status frame
+		system_frame = ttk.LabelFrame(self.root, text="System Status", padding=8)
+		system_frame.grid(row=2, column=0, padx=8, sticky="ew")
+		self.root.grid_rowconfigure(2, weight=0)
+
+		self.control_mode_var = tk.StringVar(value="Control Mode: -")
+		self.operational_mode_var = tk.StringVar(value="Operational Mode: -")
+		
+		control_mode_label = ttk.Label(system_frame, textvariable=self.control_mode_var)
+		control_mode_label.grid(row=0, column=0, padx=(0, 16), sticky="w")
+		
+		operational_mode_label = ttk.Label(system_frame, textvariable=self.operational_mode_var)
+		operational_mode_label.grid(row=0, column=1, padx=(0, 16), sticky="w")
+		
+		refresh_system_button = ttk.Button(system_frame, text="Refresh", command=self.on_refresh_system_status)
+		refresh_system_button.grid(row=0, column=2, padx=(0, 8))
+
+		# Separator
+		separator2 = ttk.Separator(self.root, orient="horizontal")
+		separator2.grid(row=3, column=0, sticky="ew", pady=(4, 4))
+
 		# Robot State controls
 		robot_frame = ttk.LabelFrame(self.root, text="Robot State", padding=8)
-		robot_frame.grid(row=2, column=0, padx=8, sticky="ew")
-		self.root.grid_rowconfigure(2, weight=0)
+		robot_frame.grid(row=4, column=0, padx=8, sticky="ew")
+		self.root.grid_rowconfigure(4, weight=0)
+
+		# Robot state status displays
+		status_row = ttk.Frame(robot_frame)
+		status_row.grid(row=0, column=0, columnspan=5, pady=(0, 8), sticky="ew")
+		
+		self.safety_mode_var = tk.StringVar(value="Safety: -")
+		self.robot_mode_var = tk.StringVar(value="Robot: -")
+		
+		safety_mode_label = ttk.Label(status_row, textvariable=self.safety_mode_var)
+		safety_mode_label.grid(row=0, column=0, padx=(0, 16), sticky="w")
+		
+		robot_mode_label = ttk.Label(status_row, textvariable=self.robot_mode_var)
+		robot_mode_label.grid(row=0, column=1, padx=(0, 16), sticky="w")
+		
+		refresh_robot_status_button = ttk.Button(status_row, text="Refresh", command=self.on_refresh_robot_status)
+		refresh_robot_status_button.grid(row=0, column=2, padx=(0, 8))
 
 		robot_actions = [
 			RobotStateAction.UNLOCK_PROTECTIVE_STOP,
@@ -125,12 +162,16 @@ class RemoteRobotControllerApp:
 				text=action, 
 				command=lambda a=action: self._send_robot_state_action(a)
 			)
-			btn.grid(row=0, column=idx, padx=(0, 6), pady=(0, 2), sticky="w")
+			btn.grid(row=1, column=idx, padx=(0, 6), pady=(0, 2), sticky="w")
+
+		# Separator
+		separator3 = ttk.Separator(self.root, orient="horizontal")
+		separator3.grid(row=5, column=0, sticky="ew", pady=(4, 4))
 
 		# Program controls
 		program_frame = ttk.LabelFrame(self.root, text="Program", padding=8)
-		program_frame.grid(row=3, column=0, padx=8, sticky="ew")
-		self.root.grid_rowconfigure(3, weight=0)
+		program_frame.grid(row=6, column=0, padx=8, sticky="ew")
+		self.root.grid_rowconfigure(6, weight=0)
 
 		# Load program
 		self.program_name_var = tk.StringVar()
@@ -169,13 +210,26 @@ class RemoteRobotControllerApp:
 		self.refresh_state_button.grid(row=0, column=1)
 
 		# Separator
-		separator2 = ttk.Separator(self.root, orient="horizontal")
-		separator2.grid(row=4, column=0, sticky="ew", pady=(4, 4))
+		separator4 = ttk.Separator(self.root, orient="horizontal")
+		separator4.grid(row=7, column=0, sticky="ew", pady=(4, 4))
+
+		# Programs list frame
+		programs_list_frame = ttk.LabelFrame(self.root, text="Programs List", padding=8)
+		programs_list_frame.grid(row=8, column=0, padx=8, sticky="ew")
+		self.root.grid_rowconfigure(8, weight=0)
+
+		list_button = ttk.Button(programs_list_frame, text="Get Programs List", command=self.on_get_programs_list)
+		list_button.grid(row=0, column=0, sticky="w")
+		attach_tooltip(list_button, "Retrieve and display the list of programs available on the robot.")
+
+		# Separator
+		separator5 = ttk.Separator(self.root, orient="horizontal")
+		separator5.grid(row=9, column=0, sticky="ew", pady=(4, 4))
 
 		# Log area (errors and info)
 		log_frame = ttk.LabelFrame(self.root, text="Log", padding=8)
-		log_frame.grid(row=5, column=0, padx=8, pady=(0, 8), sticky="nsew")
-		self.root.grid_rowconfigure(5, weight=1)
+		log_frame.grid(row=10, column=0, padx=8, pady=(0, 8), sticky="nsew")
+		self.root.grid_rowconfigure(10, weight=1)
 
 		# Debug toggle
 		debug_row = ttk.Frame(log_frame)
@@ -402,6 +456,78 @@ class RemoteRobotControllerApp:
 			api_call=self.client.get_program_state,
 			initial_message="Refreshing program state...",
 			success_message="Program state refreshed.",
+			on_success_callback=on_success_callback,
+		)
+
+	def on_refresh_system_status(self) -> None:
+		def update_control_mode():
+			def on_success_callback(resp: dict):
+				mode = resp.get("mode", "-") if isinstance(resp, dict) else "-"
+				self.control_mode_var.set(f"Control Mode: {mode}")
+			
+			self._execute_api_call(
+				api_call=self.client.get_control_mode,
+				on_success_callback=on_success_callback,
+			)
+
+		def update_operational_mode():
+			def on_success_callback(resp: dict):
+				mode = resp.get("mode", "-") if isinstance(resp, dict) else "-"
+				self.operational_mode_var.set(f"Operational Mode: {mode}")
+			
+			self._execute_api_call(
+				api_call=self.client.get_operational_mode,
+				on_success_callback=on_success_callback,
+			)
+
+		self.append_log("Refreshing system status...")
+		update_control_mode()
+		update_operational_mode()
+
+	def on_refresh_robot_status(self) -> None:
+		def update_safety_mode():
+			def on_success_callback(resp: dict):
+				mode = resp.get("mode", "-") if isinstance(resp, dict) else "-"
+				self.safety_mode_var.set(f"Safety: {mode}")
+			
+			self._execute_api_call(
+				api_call=self.client.get_safety_mode,
+				on_success_callback=on_success_callback,
+			)
+
+		def update_robot_mode():
+			def on_success_callback(resp: dict):
+				mode = resp.get("mode", "-") if isinstance(resp, dict) else "-"
+				self.robot_mode_var.set(f"Robot: {mode}")
+			
+			self._execute_api_call(
+				api_call=self.client.get_robot_mode,
+				on_success_callback=on_success_callback,
+			)
+
+		self.append_log("Refreshing robot status...")
+		update_safety_mode()
+		update_robot_mode()
+
+	def on_get_programs_list(self) -> None:
+		def on_success_callback(resp: dict):
+			if isinstance(resp, dict) and "programs" in resp:
+				programs = resp.get("programs", [])
+				if programs:
+					programs_text = "\n".join([
+						f"  - {prog.get('name', 'Unknown')}" if isinstance(prog, dict) else f"  - {prog}"
+						for prog in programs
+					])
+					self.append_log(f"Available programs ({len(programs)}):\n{programs_text}")
+				else:
+					self.append_log("No programs found on the robot.")
+			else:
+				self.append_log(f"Programs list response: {json.dumps(resp, indent=2)}")
+
+		self._execute_api_call(
+			api_call=self.client.get_programs_list,
+			initial_message="Retrieving programs list...",
+			success_message="Programs list retrieved.",
 			on_success_callback=on_success_callback,
 		)
 

@@ -6,7 +6,10 @@ Desktop GUI to control a Polyscope X Universal Robots robot via the Robot API. T
 
 ### Features
 - **Robot State controls**: `UNLOCK_PROTECTIVE_STOP`, `RESTART_SAFETY`, `POWER_OFF`, `POWER_ON`, `BRAKE_RELEASE`
-- **Program management**: Load by name, and control program state (`play`, `pause`, `stop`, `resume`). Note: provide the program name only (do not include the `.urpx` extension) or the command will fail.
+- **Robot Status monitoring**: View safety mode (NORMAL, REDUCED, FAULT, PROTECTIVE_STOP, EMERGENCY_STOP) and robot mode (POWER_OFF, IDLE, RUNNING, etc.)
+- **System Status monitoring**: View control mode (LOCAL/REMOTE) and operational mode (MANUAL/AUTOMATIC)
+- **Program management**: Load by name, control program state (`play`, `pause`, `stop`, `resume`), and list available programs. Note: provide the program name only (do not include the `.urpx` extension) or the command will fail.
+- **Programs List**: Retrieve and display all programs available on the robot
 - **Connection status**: Visual indicator and log panel with optional debug details
 - **No external deps**: Pure Python stdlib (Tkinter + urllib)
 
@@ -56,7 +59,7 @@ http://{host}/universal-robots/robot-api
 ```
 
 #### Robot State Domain
-Provides control over the robot's operational state.
+Provides control over the robot's operational state and status information.
 
 ```
 PUT /robotstate/v1/state
@@ -70,10 +73,36 @@ Responses:
   500 Internal Server Error
   504 Gateway Timeout
   422 Validation Error
+
+GET /robotstate/v1/safetymode
+Response: { "mode": "NORMAL" | "REDUCED" | "FAULT" | "PROTECTIVE_STOP" | "EMERGENCY_STOP" }
+Responses:
+  200 OK | 408 Request Timeout | 500 Internal Server Error
+
+GET /robotstate/v1/robotmode
+Response: { "mode": "NO_CONTROLLER" | "DISCONNECTED" | "CONFIRM_SAFETY" | "BOOTING" | 
+           "POWER_OFF" | "POWER_ON" | "IDLE" | "BACKDRIVE" | "RUNNING" | "UPDATING" }
+Responses:
+  200 OK | 500 Internal Server Error
+```
+
+#### System Domain
+Provides system-level information about the robot.
+
+```
+GET /system/v1/controlmode
+Response: { "mode": "LOCAL" | "REMOTE" }
+Responses:
+  200 OK | 408 Request Timeout | 500 Internal Server Error
+
+GET /system/v1/operationalmode
+Response: { "mode": "MANUAL" | "AUTOMATIC" }
+Responses:
+  200 OK | 500 Internal Server Error
 ```
 
 #### Program Domain
-Provides control over robot programs.
+Provides control over individual robot programs.
 
 ```
 PUT /program/v1/load
@@ -90,6 +119,35 @@ Responses:
 GET /program/v1/state
 Responses:
   200 OK | 500 Internal Server Error
+```
+
+#### Programs Domain
+Provides control over the robot's program library.
+
+```
+GET /programs/v1
+Response: { "programs": [ProgramInformation], "message": "string" }
+Responses:
+  200 OK | 500 Internal Server Error
+
+GET /programs/v1/{name}
+Function: Download program by name (.urpx file)
+Responses:
+  200 OK – program streamed | 404 Program not found | 422 Validation Error | 500 Internal Server Error
+
+POST /programs/v1
+Function: Import program from .urpx file
+Request format: multipart/form-data
+Responses:
+  200 OK | 400 Program with this name already exists | 403 Forbidden | 
+  422 Invalid .urpx file format | 500 Internal Server Error
+
+PUT /programs/v1
+Function: Update existing program from .urpx file
+Request format: multipart/form-data
+Responses:
+  200 OK | 403 Forbidden | 404 Program not found | 409 Program is loaded and active | 
+  422 Validation Error | 500 Internal Server Error
 ```
 
 #### Developer Notes
